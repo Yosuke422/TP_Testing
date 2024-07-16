@@ -1,60 +1,66 @@
 const { Builder, By, until } = require('selenium-webdriver');
-const { spawn } = require('child_process');
-const path = require('path');
+const chrome = require('selenium-webdriver/chrome');
+const app = require('../../src/app');
 
 describe('Reservation System Test', () => {
   let driver;
   let server;
 
-  beforeAll(async () => {
-    driver = await new Builder().forBrowser('chrome').build();
-
-    // Start the server
-    const serverPath = path.resolve(__dirname, '../../src/app.js');
-    server = spawn('node', [serverPath]);
-
-    // Wait for the server to start
-    await new Promise((resolve) => {
-      server.stdout.on('data', (data) => {
-        if (data.includes('Server is running on http://localhost:3000')) {
-          resolve();
-        }
-      });
+  beforeAll((done) => {
+    server = app.listen(3002, () => {
+      console.log('Test server running on port 3002');
+      done();
     });
+  }, 10000);
+
+  afterAll((done) => {
+    server.close(done);
+  }, 10000);
+
+  beforeEach(async () => {
+    const options = new chrome.Options();
+    options.addArguments('--headless');
+    options.addArguments('--disable-gpu');
+    options.addArguments('--no-sandbox');
+    options.addArguments('--disable-dev-shm-usage');
+
+    driver = await new Builder()
+      .forBrowser('chrome')
+      .setChromeOptions(options)
+      .build();
   });
 
-  afterAll(async () => {
-    await driver.quit();
-
-    // Stop the server
-    server.kill();
+  afterEach(async () => {
+    if (driver) {
+      await driver.quit();
+    }
   });
 
   test('should complete the reservation process', async () => {
-    // Register a member
-    await driver.get('http://localhost:3000/memberRegistration');
+    try {
+      await driver.get('http://localhost:3002/memberRegistration');
 
-    await driver.findElement(By.name('name')).sendKeys('Jane');
-    await driver.findElement(By.name('surname')).sendKeys('Doe');
-    await driver.findElement(By.name('email')).sendKeys('jane.doe@example.com');
-    await driver.findElement(By.name('password')).sendKeys('password123');
+      await driver.findElement(By.name('name')).sendKeys('Jane');
+      await driver.findElement(By.name('surname')).sendKeys('Doe');
+      await driver.findElement(By.name('email')).sendKeys('jane.doe@example.com');
+      await driver.findElement(By.name('password')).sendKeys('password123');
+      await driver.findElement(By.css('button[type="submit"]')).click();
+      await driver.wait(until.urlIs('http://localhost:3002/gymSelection'), 10000);
 
-    await driver.findElement(By.css('button[type="submit"]')).click();
-    await driver.wait(until.urlIs('http://localhost:3000/gymSelection'), 5000);
+      await driver.findElement(By.id('gym')).sendKeys('Gym A');
+      await driver.findElement(By.css('button[type="submit"]')).click();
+      await driver.wait(until.urlIs('http://localhost:3002/machineSelection'), 10000);
 
-    // Select a gym
-    await driver.findElement(By.id('gym')).sendKeys('Gym A');
-    await driver.findElement(By.css('button[type="submit"]')).click();
-    await driver.wait(until.urlIs('http://localhost:3000/machineSelection'), 5000);
+      await driver.findElement(By.id('Treadmill')).click();
+      await driver.findElement(By.id('Bike')).click();
+      await driver.findElement(By.css('button[type="submit"]')).click();
+      await driver.wait(until.urlIs('http://localhost:3002/reservationConfirmation'), 10000);
 
-    // Select machines
-    await driver.findElement(By.id('Treadmill')).click();
-    await driver.findElement(By.id('Bike')).click();
-    await driver.findElement(By.css('button[type="submit"]')).click();
-    await driver.wait(until.urlIs('http://localhost:3000/reservationConfirmation'), 5000);
-
-    // Check reservation confirmation
-    const url = await driver.getCurrentUrl();
-    expect(url).toBe('http://localhost:3000/reservationConfirmation');
-  });
+      const url = await driver.getCurrentUrl();
+      expect(url).toBe('http://localhost:3002/reservationConfirmation');
+    } catch (error) {
+      console.error('Error during reservation process:', error);
+      throw error;
+    }
+  }, 30000);
 });

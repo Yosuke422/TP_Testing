@@ -23,8 +23,10 @@ app.use(express.static(path.join(__dirname, 'views')));
 app.use('/', routes);
 
 const port = process.env.PORT || 3000;
-const server = app.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(port, () => {
+    console.log(`Server is running on http://localhost:${port}`);
+  });
+}
 
-module.exports = server;
+module.exports = app;
