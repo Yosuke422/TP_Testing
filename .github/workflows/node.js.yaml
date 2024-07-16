@@ -28,16 +28,16 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Install Google Chrome
+      - name: Install Chrome
         run: |
           sudo apt-get update
           sudo apt-get install -y google-chrome-stable
           google-chrome --version
 
-      - name: Install ChromeDriver
+      - name: Set up ChromeDriver
         run: |
           sudo apt-get install -yqq unzip
-          wget -O /tmp/chromedriver.zip https://chromedriver.storage.googleapis.com/$(curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE)/chromedriver_linux64.zip
+          wget -O /tmp/chromedriver.zip https://chromedriver.storage.googleapis.com/$(wget -qO- https://chromedriver.storage.googleapis.com/LATEST_RELEASE)/chromedriver_linux64.zip
           sudo unzip /tmp/chromedriver.zip -d /usr/local/bin/
           chromedriver --version
 
@@ -48,9 +48,4 @@ jobs:
         run: npm run test:integration
 
       - name: Run system tests
-        env:
-          DISPLAY: :99.0
-        run: |
-          sudo Xvfb :99 -ac &
-          sleep 3
-          npm run test:system
+        run: npm run test:system
